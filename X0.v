@@ -7275,7 +7275,7 @@ module X0(in, out);
   bit0 b0(seven[0], in[9], in[8], in[7], in[6], in[5], in[4], in[3], in[2], in[1], in[0]);
 
   // Remember, we need to store 8 bits of precision in 9 bits of space so
-  // out initial guess makes
+  // our initial guess makes
   //    0.5 < x0 <= 1
   // true.
   //

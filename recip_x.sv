@@ -15,8 +15,7 @@
 //              linear algebra the same divisor is often used multiple times
 //              for operations such as normalizing a vector.
 //
-//              In its present form the module is combinatorial logic.
-//              Eventually it will need to be a state machine.
+//              This version of the code is a state machine, finally!
 //
 //              Inputs:
 //              - d: The divisor for which we wish to compute the reciprocal.
@@ -31,7 +30,9 @@
 // Dependencies: fp_class.sv
 //               ieee-754-flags.vh
 //               padder11.v
+//               padder113.v
 //               padder24.v
+//               padder53.v
 //               PijGij.v
 //               round.v
 //               X0.v
@@ -42,12 +43,12 @@
 //
 //////////////////////////////////////////////////////////////////////////////////
 
-
-module recip_x(d, ra, r, rFlags, exception);
+module recip_x(clk, start, d, ra, r, rFlags, exception, done);
   parameter NEXP = 5;
   parameter NSIG = 10;
   `include "ieee-754-flags.vh"
   localparam CLOG2_NSIG = $clog2(NSIG+1);
+  input clk, start;
   input [NEXP+NSIG:0] d;
   input [NRAS-1:0] ra;
   output [NEXP+NSIG:0] r;
@@ -55,10 +56,12 @@ module recip_x(d, ra, r, rFlags, exception);
   reg [NTYPES-1:0] rFlags;
   output [NEXCEPTIONS-1:0] exception;
   reg [NEXCEPTIONS-1:0] exception;
+  output done;
+  reg done = 0;
 
   localparam hNSIG = 10;
 
-  wire inexact, inexactH, inexactX;
+  wire inexact;
 
   wire signed [NEXP+1:0] dExp, expOut;
   reg signed [NEXP+1:0] rExp, expIn, normExp = 0;
@@ -73,87 +76,172 @@ module recip_x(d, ra, r, rFlags, exception);
 
   reg [NEXP+NSIG:0] alwaysR;
 
+  // Special cases only require one additional clock cycle to complete.
+  // This may change in the future.
+  localparam SPECIAL_CYCLE_COUNT = 1;
+  // We need 1 iteration of Newton's Method for binary16. Each time we
+  // double the size of input value we need 1 additional iteration.
+  // Each iteration requires 3 cycles. We need 1 cycle for rounding the
+  // result, and 1 cycle to package the result.
+  localparam RECIPROCAL_CYCLE_COUNT = ((CLOG2_NSIG-3)*3)+2;
+
+  reg [$clog2(RECIPROCAL_CYCLE_COUNT+1)-1:0] counter = 0;
+
+  // This flag, when true, says we're processing a special case which
+  // doesn't require computing a reciprocal.
+  reg special = 0;
+
+  localparam MULTIPLY_1 = 0;
+  localparam SUBTRACT   = 1;
+  localparam MULTIPLY_2 = 2;
+  localparam ROUND      = 3;
+  reg [1:0] state;
   reg si;
+  reg [0:-NSIG-1] x_I;
+  reg [1:-(2*NSIG+1)] xa, xb;
+  reg [2:-(3*NSIG+2)] x_I_PLUS_1;
   integer i;
-  always @(*)
+  always @(posedge clk)
     begin
-      rFlags = 0;
-      exception = 0;
+      if (start)
+        begin
+          rFlags = 0;
+          exception = 0;
 
-      case (dFlags)
-        6'b100000: begin // sNaN
-            {alwaysR, rFlags} = {d, dFlags};
-          end
-        6'b010000: begin // qNaN
-            {alwaysR, rFlags} = {d, dFlags};
-          end
-        6'b001000: begin // Infinity
-            rFlags[ZERO] = 1;
-            alwaysR = {d[NEXP+NSIG], {NEXP+NSIG{1'b0}}};
-          end
-        6'b000100: begin // Zero
-            si = ra[roundTowardZero] |
-                (ra[roundTowardPositive] & ~d[NEXP+NSIG]) |
-                (ra[roundTowardNegative] &  d[NEXP+NSIG]);
-            alwaysR = {d[NEXP+NSIG], {NEXP-1{1'b1}}, ~si, {NSIG{si}}};
-            rFlags[INFINITY] = ~si;
-            rFlags[NORMAL]   =  si;
-            exception[DIVIDEBYZERO] = 1;
-          end
-        default: begin : Normal  // Normal and Subnormal
-            reg [1:-(2*NSIG+1)] xa[CLOG2_NSIG:1], xb[CLOG2_NSIG:1];
-            reg [2:-(3*NSIG+2)] x[CLOG2_NSIG:0];
+          // Special cases, that is, cases for which no long division is
+          // performed are treated as the default. Long division is expected
+          // to be the most common case but, because there are multiple
+          // special cases, it's simpler to treat the special cases as the
+          // default. There's only one case which isn't a special case and
+          // it's simpler to disable the `special' flag in that one place,
+          // and change the counter value in that one place than it is to
+          // set the special flag, and the counter in the multitude of
+          // special cases. It's also less likely to create bugs if/when
+          // changes to the code are made in the future.
+          special = 1; // Flag to say that we're doing a special case
+          counter = SPECIAL_CYCLE_COUNT;
 
-            x[0] = 0;
-            x[0][0:-(NSIG+1)] = x0;
-
-            for(i = 0; i < CLOG2_NSIG; i = i + 1)
-              begin
-                // Iteration i
-                xa[i+1] = dSigWire * x[i][0:-(NSIG+1)]; // D*xi
-                xb[i+1] = (2 << (2*NSIG+1)) - xa[i+1];  // 2 - D*xi
-                x[i+1]  = xb[i+1] * x[i][0:-(NSIG+1)];  // (2 - D*xi) * xi
+          case (dFlags)
+            6'b100000: begin // sNaN
+                {alwaysR, rFlags} = {d, dFlags};
               end
-            
-            rExp = -dExp;
-            
-            sigIn = x[CLOG2_NSIG][0:-(3*NSIG+2)] << ~x[CLOG2_NSIG][0];
-            normExp[0] = ~x[CLOG2_NSIG][0];
-            expIn = rExp - normExp;
-            
-            if (~|sigOut)
-              begin
+            6'b010000: begin // qNaN
+                {alwaysR, rFlags} = {d, dFlags};
+              end
+            6'b001000: begin // Infinity
                 rFlags[ZERO] = 1;
-                alwaysR = {ra[roundTowardNegative], {NEXP+NSIG{1'b0}}};
+                alwaysR = {d[NEXP+NSIG], {NEXP+NSIG{1'b0}}};
               end
-            else if (expOut < EMIN)
-              begin
-                rFlags[SUBNORMAL] = 1;
-                alwaysR = {d[NEXP+NSIG], {NEXP{1'b0}}, sigOut[0:1-NSIG]};
-              end
-            else if (expOut > EMAX)
-              begin
+            6'b000100: begin // Zero
                 si = ra[roundTowardZero] |
                     (ra[roundTowardPositive] & ~d[NEXP+NSIG]) |
                     (ra[roundTowardNegative] &  d[NEXP+NSIG]);
                 alwaysR = {d[NEXP+NSIG], {NEXP-1{1'b1}}, ~si, {NSIG{si}}};
                 rFlags[INFINITY] = ~si;
                 rFlags[NORMAL]   =  si;
-                exception[OVERFLOW] = 1;
+                exception[DIVIDEBYZERO] = 1;
               end
-            else
-              begin
-                rFlags[NORMAL] = 1;
-                rExp = expOut + BIAS;
-                alwaysR = {d[NEXP+NSIG], rExp[NEXP-1:0], sigOut[-1:-NSIG]};
-              end
+            default: begin  // Normal and Subnormal
+                counter = RECIPROCAL_CYCLE_COUNT;
+                special = 0;
+                state = MULTIPLY_1;
 
-            exception[INEXACT] = inexact;
-          end
-      endcase
+                x_I = x0;
+
+                rExp = -dExp;
+              end
+          endcase
+        end
+      else if (counter > 2)
+        begin
+          counter = counter - 1;
+
+          case (state)
+            MULTIPLY_1: begin
+                xa = dSigWire * x_I;         // D*xi
+                state = SUBTRACT;
+              end
+            SUBTRACT: begin
+                xb = (2 << (2*NSIG+1)) - xa; // 2 - D*xi
+                state = MULTIPLY_2;
+              end
+            default: begin // Really MULTIPLY_2 but we have to have a default case.
+                x_I_PLUS_1  = xb * x_I;      // (2 - D*xi) * xi
+                x_I = x_I_PLUS_1[0:-NSIG-1];
+                state = (counter > 2) ? MULTIPLY_1 : ROUND;
+              end
+          endcase
+        end
+      else if (counter > 1) // ROUND
+        begin
+          sigIn = x_I_PLUS_1[0:-(3*NSIG+2)] << ~x_I_PLUS_1[0];
+          normExp[0] = ~x_I_PLUS_1[0];
+          expIn = rExp - normExp;
+
+          counter = counter - 1;
+        end
+      else if (counter > 0)
+        begin
+          // Only construct a return value if this is not a special case.
+          if (~special)
+            begin
+              if (~|sigOut)
+                begin
+                  rFlags[ZERO] = 1;
+                  alwaysR = {ra[roundTowardNegative], {NEXP+NSIG{1'b0}}};
+                end
+              else if (expOut < EMIN)
+                begin
+                  rFlags[SUBNORMAL] = 1;
+                  alwaysR = {d[NEXP+NSIG], {NEXP{1'b0}}, sigOut[0:1-NSIG]};
+                end
+              else if (expOut > EMAX)
+                begin
+                  si = ra[roundTowardZero] |
+                      (ra[roundTowardPositive] & ~d[NEXP+NSIG]) |
+                      (ra[roundTowardNegative] &  d[NEXP+NSIG]);
+                  alwaysR = {d[NEXP+NSIG], {NEXP-1{1'b1}}, ~si, {NSIG{si}}};
+                  rFlags[INFINITY] = ~si;
+                  rFlags[NORMAL]   =  si;
+                  exception[OVERFLOW] = 1;
+                end
+              else
+                begin
+                  rFlags[NORMAL] = 1;
+                  rExp = expOut + BIAS;
+                  alwaysR = {d[NEXP+NSIG], rExp[NEXP-1:0], sigOut[-1:-NSIG]};
+                end
+
+              exception[INEXACT] = inexact;
+            end
+
+          counter = counter - 1;
+          special = 0;
+        end
+      // if counter == 0 there's no work left to be done
+
     end
 
   round #(3*NSIG+3,NEXP,NSIG) U1(d[NEXP+NSIG], expIn, sigIn, ra, expOut, sigOut, inexact);
 
   assign r = alwaysR;
+
+  // Logic to generate `done' signal. This signal lets the rest of
+  // the system know that the computation is complete.
+  reg running = 0;
+
+  always @(negedge clk) begin
+    if (counter > 0)
+      begin
+        running <= 1;
+        done <= 0;
+      end
+    else if (running)
+      begin
+        running <= 0;
+        done <= 1;
+      end
+    else
+      done <=0;
+  end
 endmodule

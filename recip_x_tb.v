@@ -72,185 +72,420 @@ module recip_x_tb();
 
   integer i;
 
+  reg clk=1, startH=0, startS=0, startD=0, startQ=0, dlH, dlS, dlD, dlQ;
+  initial
+  begin
+    forever
+      #10 clk = ~clk;
+  end
+
+  always @(negedge clk) // Assert start signal on falling edge of clock for 1 cycle
+  begin
+    if (~startH && dlH)
+      startH = 1;
+    else if (startH)
+      startH = 0;
+    if (~startS && dlS)
+      startS = 1;
+    else if (startS)
+      startS = 0;
+    if (~startD && dlD)
+      startD = 1;
+    else if (startD)
+      startD = 0;
+    if (~startQ && dlQ)
+      startQ = 1;
+    else if (startQ)
+      startQ = 0;
+  end
+  wire doneH, doneS, doneD, doneQ;
+
   initial
   begin
     // Add tests for sNaN, qNaN, +Infinity, -Infinity, +Zero, -Zero
 
     dh = (((1 << hNEXP) - 1) << hNSIG) | (1 << (hNSIG-2)); // sNaN
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = (((1 << hNEXP) - 1) << hNSIG) | (1 << (hNSIG-1)); // qNaN
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = (((1 << hNEXP) - 1) << hNSIG); // +Infinity
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = (1 << (hNEXP+hNSIG)) | (((1 << hNEXP) - 1) << hNSIG); // -Infinity
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = 0; // +Zero
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = (1 << (hNEXP+hNSIG)); // -Zero
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = ((2*hBIAS) << hNSIG) | ((1 << hNSIG) - 1); // Largest binary16 value
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     // Test subnormal values
     for (i = 0; i < hNSIG; i = i + 1)
       begin
         dh = 1 << i;
-        #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+        dlH = 1;
+        wait(startH)
+          dlH = 0;
+        wait(doneH&clk)
+          $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
       end
 
     dh = (hBIAS << hNSIG); // 3c00
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = (1 << (hNEXP+hNSIG)) | (hBIAS << hNSIG); // bc00
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = 16'h0514; // 724d
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = 16'h4248; // Reciprocal of PI: 3518
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     dh = 16'h5710; // 2088
-    #100 $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
+    dlH = 1;
+    wait(startH)
+      dlH = 0;
+    wait(doneH&clk)
+      $display("%x %b %x %b %b", dh, ra, rh, rhFlags, exceptionH);
 
     ds = (((1 << sNEXP) - 1) << sNSIG) | (1 << (sNSIG-2)); // sNaN
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     ds = (((1 << sNEXP) - 1) << sNSIG) | (1 << (sNSIG-1)); // qNaN
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     ds = (((1 << sNEXP) - 1) << sNSIG); // +Infinity
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     ds = (1 << (sNEXP+sNSIG)) | (((1 << sNEXP) - 1) << sNSIG); // -Infinity
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     ds = 0; // +Zero
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     ds = (1 << (sNEXP+sNSIG)); // -Zero
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
-    ds = ((2*sBIAS) << sNSIG) | ((1 << sNSIG) - 1); // Largest binary16 value
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    ds = ((2*sBIAS) << sNSIG) | ((1 << sNSIG) - 1); // Largest binary32 value
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     // Test subnormal values
     for (i = 0; i < sNSIG; i = i + 1)
       begin
         ds = 1 << i;
-        #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+        dlS = 1;
+        wait(startS)
+          dlS = 0;
+        wait(doneS&clk)
+          $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
       end
 
     ds = (sBIAS << sNSIG); // 3c00
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     ds = (1 << (sNEXP+sNSIG)) | (sBIAS << sNSIG); // bc00
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
 //    ds = 16'h0514; // 724d
-//    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+//    dlS = 1;
+//    wait(startS)
+//      dlS = 0;
+//    wait(doneS&clk)
+//      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     ds = 32'h40490fdb; // Reciprocal of PI: 3ea2f983
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     ds = 32'h42e20000; // 3c10fdbc
-    #100 $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
+    dlS = 1;
+    wait(startS)
+      dlS = 0;
+    wait(doneS&clk)
+      $display("%x %b %x %b %b", ds, ra, rs, rsFlags, exceptionS);
 
     dd = (((1 << dNEXP) - 1) << dNSIG) | (1 << (dNSIG-2)); // sNaN
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dd = (((1 << dNEXP) - 1) << dNSIG) | (1 << (dNSIG-1)); // qNaN
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dd = (((1 << dNEXP) - 1) << dNSIG); // +Infinity
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dd = (1 << (dNEXP+dNSIG)) | (((1 << dNEXP) - 1) << dNSIG); // -Infinity
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dd = 0; // +Zero
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dd = (1 << (dNEXP+dNSIG)); // -Zero
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dd = ((2*dBIAS) << dNSIG) | ((1 << dNSIG) - 1); // Largest binary16 value
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     // Test subnormal values
     for (i = 0; i < dNSIG; i = i + 1)
       begin
         dd = 1 << i;
-        #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+        dlD = 1;
+        wait(startD)
+          dlD = 0;
+        wait(doneD&clk)
+          $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
       end
 
-    dd = (dBIAS << dNSIG); // 3c00
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dd = (dBIAS << dNSIG); // 3ff0000000000000
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
-    dd = (1 << (dNEXP+dNSIG)) | (dBIAS << dNSIG); // bc00
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dd = (1 << (dNEXP+dNSIG)) | (dBIAS << dNSIG); // bff0000000000000
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
 //    dd = 16'h0514; // 724d
-//    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+//    dlD = 1;
+//    wait(startD)
+//      dlD = 0;
+//    wait(doneD&clk)
+//      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dd = 64'h400921fb54442d18; // Reciprocal of PI: 3fd45f306dc9c883
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dd = 64'h405c400000000000; // 3f821fb78121fb78
-    #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+    dlD = 1;
+    wait(startD)
+      dlD = 0;
+    wait(doneD&clk)
+      $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
 
     dq = (((1 << qNEXP) - 1) << qNSIG) | (1 << (qNSIG-2)); // sNaN
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     dq = (((1 << qNEXP) - 1) << qNSIG) | (1 << (qNSIG-1)); // qNaN
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     dq = (((1 << qNEXP) - 1) << qNSIG); // +Infinity
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     dq = (1 << (qNEXP+qNSIG)) | (((1 << qNEXP) - 1) << qNSIG); // -Infinity
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     dq = 0; // +Zero
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     dq = (1 << (qNEXP+qNSIG)); // -Zero
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     dq = ((2*qBIAS) << qNSIG) | ((1 << qNSIG) - 1); // Largest binary16 value
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     // Test subnormal values
     for (i = 0; i < qNSIG; i = i + 1)
       begin
         dq = 1 << i;
-        #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+        dlQ = 1;
+        wait(startQ)
+          dlQ = 0;
+        wait(doneQ&clk)
+          $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
       end
 
-    dq = (qBIAS << qNSIG); // 3c00
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dq = (qBIAS << qNSIG); // 3fff0000000000000000000000000000
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
-    dq = (1 << (qNEXP+qNSIG)) | (qBIAS << qNSIG); // bc00
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dq = (1 << (qNEXP+qNSIG)) | (qBIAS << qNSIG); // bfff0000000000000000000000000000
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
 //    dq = 16'h0514; // 724d
 //    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     dq = 128'h4000921fb54442d18469898cc51701b8; // Reciprocal of PI: 3ffd45f306dc9c882a53f84eafa3ea6a
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
 
     dq = 128'h4005c400000000000000000000000000; // 3ff821fb78121fb78121fb78121fb781
-    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+    dlQ = 1;
+    wait(startQ)
+      dlQ = 0;
+    wait(doneQ&clk)
+      $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    #100 $display("\nEnd of tests : %t", $time);
+    $stop;
   end
 
-  recip_x #(hNEXP,hNSIG) U0(dh, ra, rh, rhFlags, exceptionH);
-  recip_x #(sNEXP,sNSIG) U1(ds, ra, rs, rsFlags, exceptionS);
-  recip_x #(dNEXP,dNSIG) U2(dd, ra, rd, rdFlags, exceptionD);
-  recip_x #(qNEXP,qNSIG) U3(dq, ra, rq, rqFlags, exceptionQ);
+  recip_x #(hNEXP,hNSIG) U0(clk, startH, dh, ra, rh, rhFlags, exceptionH, doneH);
+  recip_x #(sNEXP,sNSIG) U1(clk, startS, ds, ra, rs, rsFlags, exceptionS, doneS);
+  recip_x #(dNEXP,dNSIG) U2(clk, startD, dd, ra, rd, rdFlags, exceptionD, doneD);
+  recip_x #(qNEXP,qNSIG) U3(clk, startQ, dq, ra, rq, rqFlags, exceptionQ, doneQ);
 endmodule

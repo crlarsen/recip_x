@@ -1,0 +1,21 @@
+# Copyright Chris Larsen, 2022
+
+# Python 3 script to create lookup table for IEEE 754 binary16 floating point
+# numbers. The first 10 bits, are the quotient of 1/D. These 10 bits need to be
+# prepended with the implied leading 1 bit. The last 3 bits of the entry
+# correspond to values lastKeptBitIsOdd, decidingBitIsOne, and
+# remainingBitsAreNonzero as defined in the Verilog module round.v used in my
+# video series "Building an FPU in Verilog" on YouTube.
+#
+# Yes, the last bit of the quotient of the significand of the reciprocal, and
+# lastKeptBitIsOdd are the same bit!
+
+for i in range(0b1_0000000000, 0b10_0000000000, 8):
+  s = "        "
+  for j in range(0, 8):
+    remainingBitsAreNonzero = 1 if 0b1_0000000000_0000000000000 % (i+j) != 0 else 0
+    h = hex( ((0b1_0000000000_0000000000000 // (i+j)) | remainingBitsAreNonzero) & 0xFFF )
+    if len(h) != 5:
+      h = h[:2] + ("0" * (5-len(h))) + h[2:]
+    s = s + h + ", "
+  print(s[:-1])

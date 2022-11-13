@@ -1,0 +1,30 @@
+# python3 makeRecipLut | diff -Z - X0.v | less
+
+def bit(x, n):
+  return (x >> n) & 1
+
+r = [((1 << 18) // x) & 0x7f for x in range(0b1_0000000000, 0b10_0000000000)]
+
+inList = ["in" + str(j) for j in range(9,-1,-1)]
+
+for i in range(6, -1, -1):
+  print("primitive bit" + str(i) + "(out, " + ", ".join(inList) + ");")
+  print("  input " + ", ".join(inList) + ";")
+  print("  output out;\n")
+
+  print("  table")
+  print("  // " + " ".join(inList) + " : out")
+  for j in range(0, 0b1_0000000000):
+    print("      " + "   ".join([str(bit(j,n)) for n in range(9,-1,-1)]) + "  :  " + str(bit(r[j],i)) + ";")
+  print("  endtable")
+
+  print("endprimitive\n")
+
+print("module X0(in, out);")
+print("  input [9:0] in;")
+print("  output [6:0] out;\n")
+
+for i in range(6, -1, -1):
+  print("  bit" + str(i) + " b" + str(i) + "(out[" + str(i) + "], " + ", ".join(["in["+str(j)+"]" for j in range(9,-1,-1)]) + ");")
+
+print("endmodule")
