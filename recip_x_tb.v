@@ -9,7 +9,7 @@
 // Target Devices:
 // Tool Versions:
 // Description: Testbench to verify that recip_x can successfully find the
-//              reciprocal for binary16/-32/-64 values.
+//              reciprocal for binary16/-32/-64/-128 values.
 //
 // Dependencies:
 //
@@ -54,6 +54,16 @@ module recip_x_tb();
   wire [dNEXP+dNSIG:0] rd;
   wire [NTYPES-1:0] rdFlags;
   wire [NEXCEPTIONS-1:0] exceptionD;
+
+  localparam qNEXP = 15;
+  localparam qNSIG = 112;
+  localparam qBIAS = ((1 << (qNEXP - 1)) - 1); // IEEE 754, section 3.3
+  localparam qEMAX = qBIAS; // IEEE 754, section 3.3
+  localparam qEMIN = (1 - qEMAX); // IEEE 754, section 3.3
+  reg [qNEXP+qNSIG:0] dq;
+  wire [qNEXP+qNSIG:0] rq;
+  wire [NTYPES-1:0] rqFlags;
+  wire [NEXCEPTIONS-1:0] exceptionQ;
 
   // roundTiesToEven roundTowardZero roundTowardPositive roundTowardNegative
   reg [NRAS-1:0] ra = 1 << roundTiesToEven;
@@ -194,9 +204,53 @@ module recip_x_tb();
 
     dd = 64'h405c400000000000; // 3f821fb78121fb78
     #100 $display("%x %b %x %b %b", dd, ra, rd, rdFlags, exceptionD);
+
+    dq = (((1 << qNEXP) - 1) << qNSIG) | (1 << (qNSIG-2)); // sNaN
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = (((1 << qNEXP) - 1) << qNSIG) | (1 << (qNSIG-1)); // qNaN
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = (((1 << qNEXP) - 1) << qNSIG); // +Infinity
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = (1 << (qNEXP+qNSIG)) | (((1 << qNEXP) - 1) << qNSIG); // -Infinity
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = 0; // +Zero
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = (1 << (qNEXP+qNSIG)); // -Zero
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = ((2*qBIAS) << qNSIG) | ((1 << qNSIG) - 1); // Largest binary16 value
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    // Test subnormal values
+    for (i = 0; i < qNSIG; i = i + 1)
+      begin
+        dq = 1 << i;
+        #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+      end
+
+    dq = (qBIAS << qNSIG); // 3c00
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = (1 << (qNEXP+qNSIG)) | (qBIAS << qNSIG); // bc00
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+//    dq = 16'h0514; // 724d
+//    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = 128'h4000921fb54442d18469898cc51701b8; // Reciprocal of PI: 3ffd45f306dc9c882a53f84eafa3ea6a
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
+
+    dq = 128'h4005c400000000000000000000000000; // 3ff821fb78121fb78121fb78121fb781
+    #100 $display("%x %b %x %b %b", dq, ra, rq, rqFlags, exceptionQ);
   end
 
   recip_x #(hNEXP,hNSIG) U0(dh, ra, rh, rhFlags, exceptionH);
   recip_x #(sNEXP,sNSIG) U1(ds, ra, rs, rsFlags, exceptionS);
   recip_x #(dNEXP,dNSIG) U2(dd, ra, rd, rdFlags, exceptionD);
+  recip_x #(qNEXP,qNSIG) U3(dq, ra, rq, rqFlags, exceptionQ);
 endmodule
