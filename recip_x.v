@@ -21,7 +21,7 @@
 //              Inputs:
 //              - d: The divisor for which we wish to compute the reciprocal.
 //              - ra: The rounding attribute to be used when truncating the
-//                    result to fit into the final binary16 result.
+//                    result to fit into the final binary16/-32/-64 result.
 //              Outputs:
 //              - r: The computed reciprocal value.
 //              - rFlags: Flags telling the system which type of value (sNaN,
@@ -135,10 +135,28 @@ module recip_x(d, ra, r, rFlags, exception);
                 x2b = (2 << (2*NSIG+1)) - x2a;
                 x2 = x2b * x1[0:-(NSIG+1)];
 
-                // Normalize x2
-                sigIn = x2[0:-(3*NSIG+2)] << ~x2[0];
-                normExp[0] = ~x2[0];
-                expIn = rExp - normExp;
+                if (NEXP == sNEXP)
+                  begin
+                    // Normalize x2
+                    sigIn = x2[0:-(3*NSIG+2)] << ~x2[0];
+                    normExp[0] = ~x2[0];
+                    expIn = rExp - normExp;
+                  end
+                else
+                  begin : BINARY64
+                    reg [1:-(2*NSIG+1)] x3a, x3b;
+                    reg [2:-(3*NSIG+2)] x3;
+
+                    // Iteration 3
+                    x3a = dSigWire * x2[0:-(NSIG+1)];
+                    x3b = (2 << (2*NSIG+1)) - x3a;
+                    x3 = x3b * x2[0:-(NSIG+1)];
+
+                    // Normalize x3
+                    sigIn = x3[0:-(3*NSIG+2)] << ~x3[0];
+                    normExp[0] = ~x3[0];
+                    expIn = rExp - normExp;
+                  end
               end
 
             if (~|sigOut)
