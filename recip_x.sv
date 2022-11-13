@@ -39,7 +39,7 @@
 // Revision:
 // Revision 0.01 - File Created
 // Additional Comments:
-// 
+//
 //////////////////////////////////////////////////////////////////////////////////
 
 
@@ -47,6 +47,7 @@ module recip_x(d, ra, r, rFlags, exception);
   parameter NEXP = 5;
   parameter NSIG = 10;
   `include "ieee-754-flags.vh"
+  localparam CLOG2_NSIG = $clog2(NSIG+1);
   input [NEXP+NSIG:0] d;
   input [NRAS-1:0] ra;
   output [NEXP+NSIG:0] r;
@@ -55,14 +56,7 @@ module recip_x(d, ra, r, rFlags, exception);
   output [NEXCEPTIONS-1:0] exception;
   reg [NEXCEPTIONS-1:0] exception;
 
-  localparam hNEXP = 5;
   localparam hNSIG = 10;
-  localparam sNEXP = 8;
-  localparam sNSIG = 23;
-  localparam dNEXP = 11;
-  localparam dNSIG = 52;
-  localparam qNEXP = 15;
-  localparam qNSIG = 112;
 
   wire inexact, inexactH, inexactX;
 
@@ -80,6 +74,7 @@ module recip_x(d, ra, r, rFlags, exception);
   reg [NEXP+NSIG:0] alwaysR;
 
   reg si;
+  integer i;
   always @(*)
     begin
       rFlags = 0;
@@ -106,75 +101,26 @@ module recip_x(d, ra, r, rFlags, exception);
             exception[DIVIDEBYZERO] = 1;
           end
         default: begin : Normal  // Normal and Subnormal
-            reg [1:-(2*NSIG+1)] x1a, x1b;
-            reg [2:-(3*NSIG+2)] x1;
+            reg [1:-(2*NSIG+1)] xa[CLOG2_NSIG:1], xb[CLOG2_NSIG:1];
+            reg [2:-(3*NSIG+2)] x[CLOG2_NSIG:0];
 
-            // Iteration 1
-            x1a = dSigWire * x0;               // D*x0
-            x1b = (2 << (2*NSIG+1)) - x1a;     // 2 - D*x0
-            x1 = x1b * x0;                     // (2 - D*x0) * x0
+            x[0] = 0;
+            x[0][0:-(NSIG+1)] = x0;
 
-            rExp = -dExp;
-
-            if (NEXP == hNEXP)
+            for(i = 0; i < CLOG2_NSIG; i = i + 1)
               begin
-                // Normalize x1
-                sigIn = x1[0:-(3*NSIG+2)] << ~x1[0];
-                normExp[0] = ~x1[0];
-                expIn = rExp - normExp;
+                // Iteration i
+                xa[i+1] = dSigWire * x[i][0:-(NSIG+1)]; // D*xi
+                xb[i+1] = (2 << (2*NSIG+1)) - xa[i+1];  // 2 - D*xi
+                x[i+1]  = xb[i+1] * x[i][0:-(NSIG+1)];  // (2 - D*xi) * xi
               end
-            else
-              begin : BINARY32
-                reg [1:-(2*NSIG+1)] x2a, x2b;
-                reg [2:-(3*NSIG+2)] x2;
-
-                // Iteration 2
-                x2a = dSigWire * x1[0:-(NSIG+1)];
-                x2b = (2 << (2*NSIG+1)) - x2a;
-                x2 = x2b * x1[0:-(NSIG+1)];
-
-                if (NEXP == sNEXP)
-                  begin
-                    // Normalize x2
-                    sigIn = x2[0:-(3*NSIG+2)] << ~x2[0];
-                    normExp[0] = ~x2[0];
-                    expIn = rExp - normExp;
-                  end
-                else
-                  begin : BINARY64
-                    reg [1:-(2*NSIG+1)] x3a, x3b;
-                    reg [2:-(3*NSIG+2)] x3;
-
-                    // Iteration 3
-                    x3a = dSigWire * x2[0:-(NSIG+1)];
-                    x3b = (2 << (2*NSIG+1)) - x3a;
-                    x3 = x3b * x2[0:-(NSIG+1)];
-                
-                    if (NEXP == dNEXP)
-                      begin
-                        // Normalize x3
-                        sigIn = x3[0:-(3*NSIG+2)] << ~x3[0];
-                        normExp[0] = ~x3[0];
-                        expIn = rExp - normExp;
-                      end
-                    else
-                      begin : BINARY128
-                        reg [1:-(2*NSIG+1)] x4a, x4b;
-                        reg [2:-(3*NSIG+2)] x4;
-                
-                        // Iteration 4
-                        x4a = dSigWire * x3[0:-(NSIG+1)];
-                        x4b = (2 << (2*NSIG+1)) - x4a;
-                        x4 = x4b * x3[0:-(NSIG+1)];
-                
-                        // Normalize x4
-                        sigIn = x4[0:-(3*NSIG+2)] << ~x4[0];
-                        normExp[0] = ~x4[0];
-                        expIn = rExp - normExp;
-                      end
-                  end
-              end
-
+            
+            rExp = -dExp;
+            
+            sigIn = x[CLOG2_NSIG][0:-(3*NSIG+2)] << ~x[CLOG2_NSIG][0];
+            normExp[0] = ~x[CLOG2_NSIG][0];
+            expIn = rExp - normExp;
+            
             if (~|sigOut)
               begin
                 rFlags[ZERO] = 1;
@@ -202,12 +148,12 @@ module recip_x(d, ra, r, rFlags, exception);
                 alwaysR = {d[NEXP+NSIG], rExp[NEXP-1:0], sigOut[-1:-NSIG]};
               end
 
-            exception[INEXACT]  = inexact;
+            exception[INEXACT] = inexact;
           end
       endcase
     end
 
   round #(3*NSIG+3,NEXP,NSIG) U1(d[NEXP+NSIG], expIn, sigIn, ra, expOut, sigOut, inexact);
-  
+
   assign r = alwaysR;
 endmodule
