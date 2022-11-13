@@ -1,29 +1,30 @@
 `timescale 1ns / 1ps
 //////////////////////////////////////////////////////////////////////////////////
 // Copyright: Chris Larsen, 2022
-// 
+//
 // Create Date: 11/05/2022 11:10:38 PM
-// Design Name: 
+// Design Name:
 // Module Name: X0
-// Project Name: 
-// Target Devices: 
-// Tool Versions: 
+// Project Name:
+// Target Devices:
+// Tool Versions:
 // Description: Generate initial guess for reciprocal of a floating point
 //              number.
 //
 //              Input:  The 10 most significant bits of the significand field.
 //                      We don't use the implied leading 1 bit.
 //
-//              Output: 7 bit, which when prepended with a leading 1 bit
-//                      will form an 8-bit initial guess for the significand
-//                      of the reciprocal.
-// 
-// Dependencies: 
-// 
+//              Output: An initial guess with one significand digit to the
+//                      left of the binary point, and NSIG+1 bits to the right
+//                      of the binary point. This is needed for compatibility
+//                      with subsequent iterations of Newton's Method.
+//
+// Dependencies:
+//
 // Revision:
 // Revision 0.01 - File Created
 // Additional Comments:
-// 
+//
 //////////////////////////////////////////////////////////////////////////////////
 
 primitive bit6(out, in9, in8, in7, in6, in5, in4, in3, in2, in1, in0);
@@ -7258,9 +7259,11 @@ primitive bit0(out, in9, in8, in7, in6, in5, in4, in3, in2, in1, in0);
 endprimitive
 
 module X0(in, out);
+  parameter NEXP = 5;
+  parameter NSIG = 11;
   input [9:0] in;
-  output [0:-8] out;
-  
+  output [0:-NSIG-1] out;
+
   wire [6:0] seven;
 
   bit6 b6(seven[6], in[9], in[8], in[7], in[6], in[5], in[4], in[3], in[2], in[1], in[0]);
@@ -7270,10 +7273,13 @@ module X0(in, out);
   bit2 b2(seven[2], in[9], in[8], in[7], in[6], in[5], in[4], in[3], in[2], in[1], in[0]);
   bit1 b1(seven[1], in[9], in[8], in[7], in[6], in[5], in[4], in[3], in[2], in[1], in[0]);
   bit0 b0(seven[0], in[9], in[8], in[7], in[6], in[5], in[4], in[3], in[2], in[1], in[0]);
-  
+
   // Remember, we need to store 8 bits of precision in 9 bits of space so
   // out initial guess makes
   //    0.5 < x0 <= 1
   // true.
-  assign out = in == 0 ? {1'b1, seven, 1'b0} : {2'b01, seven};
+  //
+  // We also need to expand the width of x0 to NSIG+2 bits because we need
+  // x0 to be the same width as all subsequent xi values.
+  assign out = in == 0 ? {1'b1, seven, {NSIG-6{1'b0}}} : {2'b01, seven, {NSIG-7{1'b0}}};
 endmodule
